@@ -96,9 +96,13 @@ def store_user_memory(text: str) -> None:
     )
 
 
-def retrieve_user_memories(query: str, n_results: int = 3) -> list[str]:
-    query_embedding = create_embedding(query)
-
+def retrieve_user_memories(
+    query: str,
+    n_results: int = 3,
+    query_embedding: list[float] | None = None
+) -> list[str]:
+    if query_embedding is None:
+        query_embedding = create_embedding(query)
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=n_results,
@@ -109,7 +113,6 @@ def retrieve_user_memories(query: str, n_results: int = 3) -> list[str]:
             ]
         }
     )
-
     return results.get("documents", [[]])[0]
 
 
@@ -133,8 +136,13 @@ def store_session_summary(text: str, session_id: str) -> None:
     )
 
 
-def retrieve_session_summaries(query: str, n_results: int = 2) -> list[str]:
-    query_embedding = create_embedding(query)
+def retrieve_session_summaries(
+    query: str,
+    n_results: int = 2,
+    query_embedding: list[float] | None = None
+) -> list[str]:
+    if query_embedding is None:
+        query_embedding = create_embedding(query)
 
     results = collection.query(
         query_embeddings=[query_embedding],
@@ -148,3 +156,23 @@ def retrieve_session_summaries(query: str, n_results: int = 2) -> list[str]:
     )
 
     return results.get("documents", [[]])[0]
+
+
+def retrieve_context(query: str) -> dict:
+    query_embedding = create_embedding(query)
+    preferences = get_user_preferences()
+    user_memories = retrieve_user_memories(
+        query=query,
+        n_results=3,
+        query_embedding=query_embedding
+    )
+    session_summaries = retrieve_session_summaries(
+        query=query,
+        n_results=2,
+        query_embedding=query_embedding
+    )
+    return {
+        "preferences": preferences,
+        "user_memories": user_memories,
+        "session_summaries": session_summaries
+    }

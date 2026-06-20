@@ -1,27 +1,15 @@
-from core.memory_manager import (
-    store_user_preference,
-    store_user_memory,
-    store_session_summary,
-    get_user_preferences,
-    retrieve_user_memories,
-    retrieve_session_summaries,
-)
+from core.memory_manager import retrieve_context
 
-store_user_preference("Ο χρήστης προτιμά σύντομες απαντήσεις.")
-store_user_memory("Ο χρήστης λέγεται Άγγελος.")
-store_user_memory("Ο χρήστης γράφει διπλωματική για μνήμη σε LLMs.")
-store_session_summary(
-    "Στη συνομιλία συζητήθηκε η χρήση ChromaDB και embeddings για μακροπρόθεσμη μνήμη.",
-    session_id="test-session-1"
-)
-
-query = "Πώς με λένε και τι θέμα έχει η διπλωματική μου;"
+context = retrieve_context("Πώς με λένε και τι θέμα έχει η διπλωματική μου;")
 
 print("Preferences:")
-print(get_user_preferences())
+for item in context["preferences"]:
+    print("-", item)
 
 print("\nUser memories:")
-print(retrieve_user_memories(query, n_results=3))
+for item in context["user_memories"]:
+    print("-", item)
 
 print("\nSession summaries:")
-print(retrieve_session_summaries(query, n_results=2))
+for item in context["session_summaries"]:
+    print("-", item)
