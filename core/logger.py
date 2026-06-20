@@ -11,7 +11,8 @@ def log_prompt(
     context: dict,
     session_summary: str,
     messages_for_llm: list[dict],
-    assistant_response: str
+    assistant_response: str,
+    classification: dict | None = None
 ) -> None:
 
     timestamp = datetime.now().strftime(
@@ -28,7 +29,8 @@ def log_prompt(
     "assistant_message": {
         "role": "assistant",
         "content": assistant_response
-    }
+    },
+    "memory_classification": classification
 }
 
     with open(

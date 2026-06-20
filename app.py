@@ -1,10 +1,11 @@
 import streamlit as st
 
 from core.llm_client import generate_response
-from core.memory_manager import retrieve_context, store_chat_summary
+from core.memory_manager import retrieve_context, store_chat_summary, retrieve_context, store_chat_summary, store_user_memory, store_user_preference
 from core.prompt_builder import build_messages
 from core.logger import log_prompt
 from core.summarizer import update_session_summary
+from core.memory_classifier import classify_memory
 import uuid
 
 
@@ -104,13 +105,28 @@ if user_input:
         with st.spinner("Thinking..."):
             assistant_response = generate_response(messages_for_llm)
             st.write(assistant_response)
+    
+    classification = classify_memory(user_input)
+    memory_type = classification["memory_type"]
+    memory_text = classification["memory_text"]
+    if memory_type == "preference":
+        store_user_preference(
+            text=memory_text,
+            user_id=user_id
+        )
+    elif memory_type == "user_memory":
+        store_user_memory(
+            text=memory_text,
+            user_id=user_id
+        )
 
     log_prompt(
         user_input=user_input,
         context=context,
         session_summary=st.session_state.session_summary,
         messages_for_llm=messages_for_llm,
-        assistant_response=assistant_response
+        assistant_response=assistant_response,
+        classification=classification
     )
 
     st.session_state.messages.append(
