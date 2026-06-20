@@ -17,6 +17,7 @@ collection = chroma_client.get_or_create_collection(
 
 def store_memory(
     text: str,
+    user_id: str,
     role: str = "user",
     memory_type: str = "conversation",
     status: str = "active"
@@ -30,6 +31,7 @@ def store_memory(
         metadatas=[
             {
                 "role": role,
+                "user_id": user_id,
                 "memory_type": memory_type,
                 "status": status,
                 "timestamp": datetime.now().isoformat()
@@ -66,19 +68,21 @@ def get_all_memories() -> list[dict]:
     return memories
 
 
-def store_user_preference(text: str) -> None:
+def store_user_preference(text: str, user_id: str) -> None:
     store_memory(
         text=text,
+        user_id=user_id,
         role="user",
         memory_type="preference",
         status="active"
     )
 
 
-def get_user_preferences() -> list[str]:
+def get_user_preferences(user_id: str) -> list[str]:
     results = collection.get(
         where={
             "$and": [
+                {"user_id": user_id},
                 {"memory_type": "preference"},
                 {"status": "active"}
             ]
@@ -87,9 +91,10 @@ def get_user_preferences() -> list[str]:
     return results.get("documents", [])
 
 
-def store_user_memory(text: str) -> None:
+def store_user_memory(text: str, user_id: str) -> None:
     store_memory(
         text=text,
+        user_id=user_id,
         role="user",
         memory_type="user_memory",
         status="active"
@@ -98,6 +103,7 @@ def store_user_memory(text: str) -> None:
 
 def retrieve_user_memories(
     query: str,
+    user_id: str,
     n_results: int = 3,
     query_embedding: list[float] | None = None
 ) -> list[str]:
@@ -108,6 +114,7 @@ def retrieve_user_memories(
         n_results=n_results,
         where={
             "$and": [
+                {"user_id": user_id},
                 {"memory_type": "user_memory"},
                 {"status": "active"}
             ]
@@ -116,28 +123,47 @@ def retrieve_user_memories(
     return results.get("documents", [[]])[0]
 
 
-def store_session_summary(text: str, session_id: str) -> None:
-    memory_id = str(uuid.uuid4())
+def store_chat_summary(
+    text: str,
+    session_id: str,
+    user_id: str,
+    existing_id: str | None = None
+) -> str:
     embedding = create_embedding(text)
+
+    metadata = {
+        "role": "system",
+        "user_id": user_id,
+        "memory_type": "chat_summary",
+        "status": "active",
+        "session_id": session_id,
+        "timestamp": datetime.now().isoformat()
+    }
+
+    if existing_id:
+        collection.update(
+            ids=[existing_id],
+            documents=[text],
+            embeddings=[embedding],
+            metadatas=[metadata]
+        )
+        return existing_id
+
+    memory_id = str(uuid.uuid4())
 
     collection.add(
         ids=[memory_id],
         documents=[text],
         embeddings=[embedding],
-        metadatas=[
-            {
-                "role": "system",
-                "memory_type": "session_summary",
-                "status": "active",
-                "session_id": session_id,
-                "timestamp": datetime.now().isoformat()
-            }
-        ]
+        metadatas=[metadata]
     )
 
+    return memory_id
 
-def retrieve_session_summaries(
+
+def retrieve_chat_summaries(
     query: str,
+    user_id: str,
     n_results: int = 2,
     query_embedding: list[float] | None = None
 ) -> list[str]:
@@ -149,7 +175,8 @@ def retrieve_session_summaries(
         n_results=n_results,
         where={
             "$and": [
-                {"memory_type": "session_summary"},
+                {"user_id": user_id},
+                {"memory_type": "chat_summary"},
                 {"status": "active"}
             ]
         }
@@ -158,16 +185,18 @@ def retrieve_session_summaries(
     return results.get("documents", [[]])[0]
 
 
-def retrieve_context(query: str) -> dict:
+def retrieve_context(query: str, user_id: str) -> dict:
     query_embedding = create_embedding(query)
-    preferences = get_user_preferences()
+    preferences = get_user_preferences(user_id=user_id)
     user_memories = retrieve_user_memories(
         query=query,
+        user_id=user_id,
         n_results=3,
         query_embedding=query_embedding
     )
-    session_summaries = retrieve_session_summaries(
+    session_summaries = retrieve_chat_summaries(
         query=query,
+        user_id=user_id,
         n_results=2,
         query_embedding=query_embedding
     )

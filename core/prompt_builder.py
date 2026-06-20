@@ -34,8 +34,9 @@ def build_messages(
     system_content = f"""
 You are a helpful memory-augmented assistant.
 
-Use the following memory context when it is relevant.
-Do not mention memory retrieval unless the user asks.
+Use the memory context only when relevant.
+If the user asks for the current conversation summary, answer using the Current Session Summary and recent messages.
+Do not mention retrieval or internal memory unless the user asks.
 
 {format_list("User Preferences", preferences)}
 
