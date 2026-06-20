@@ -38,15 +38,15 @@ def store_memory(
     )
 
 
-def retrieve_memories(query: str, n_results: int = 3) -> list[str]:
-    query_embedding = create_embedding(query)
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=n_results,
-        where={"status": "active"}
-    )
-    documents = results.get("documents", [[]])[0]
-    return documents
+#def retrieve_memories(query: str, n_results: int = 3) -> list[str]:
+#    query_embedding = create_embedding(query)
+#    results = collection.query(
+#        query_embeddings=[query_embedding],
+#        n_results=n_results,
+#        where={"status": "active"}
+#    )
+#    documents = results.get("documents", [[]])[0]
+#    return documents
 
 
 def get_all_memories() -> list[dict]:
@@ -174,5 +174,5 @@ def retrieve_context(query: str) -> dict:
     return {
         "preferences": preferences,
         "user_memories": user_memories,
-        "session_summaries": session_summaries
+        "chat_summaries": session_summaries
     }

@@ -6,6 +6,9 @@ __pycache__/
 # Chroma Database
 data/chroma_db/
 
+# Logs
+logs/
+
 # C extensions
 *.so
 

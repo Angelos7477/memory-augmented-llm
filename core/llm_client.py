@@ -1,22 +1,21 @@
 import os
-from openai import OpenAI
-from openai import RateLimitError
+from openai import OpenAI, RateLimitError
 from dotenv import load_dotenv
 
 load_dotenv()
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+MODEL = "gpt-5.4-mini-2026-03-17"
 
-def generate_response(messages):
+def generate_response(messages: list[dict]) -> str:
     try:
-        response = client.chat.completions.create(
-            model="gpt-5.4-mini-2026-03-17",
-            messages=messages,
-            temperature=0.7,
+        response = client.responses.create(
+            model=MODEL,
+            input=messages,
         )
 
-        return response.choices[0].message.content
+        return response.output_text
 
     except RateLimitError:
         return "Δεν υπάρχει διαθέσιμο OpenAI quota. Έλεγξε billing ή API credits."

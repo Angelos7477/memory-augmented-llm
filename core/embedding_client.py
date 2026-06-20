@@ -9,7 +9,7 @@ client = OpenAI(
 )
 
 def create_embedding(text: str):
-
+    print("Creating embedding for:", text[:50])
     response = client.embeddings.create(
         model="text-embedding-3-small",
         input=text
