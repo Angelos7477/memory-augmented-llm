@@ -17,16 +17,12 @@ st.set_page_config(
 st.title("🧠 Memory-Augmented LLM Chatbot")
 st.caption("Memory-Augmented Chatbot with OpenAI, Embeddings and ChromaDB")
 
-col1, col2 = st.columns(2)
-with col1:
-    new_chat_clicked = st.button("New Chat")
-with col2:
-    save_clicked = st.button("Save Chat Summary In Long-Term Memory")
 
-user_id = st.sidebar.text_input(
-    "User ID",
-    value="default_user"
-)
+user_id = st.sidebar.text_input("User ID", value="default_user")
+
+new_chat_clicked = st.sidebar.button("New Chat")
+
+save_clicked = st.sidebar.button("Save Chat Summary In Long-Term Memory")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -107,18 +103,19 @@ if user_input:
             st.write(assistant_response)
     
     classification = classify_memory(user_input)
-    memory_type = classification["memory_type"]
-    memory_text = classification["memory_text"]
-    if memory_type == "preference":
-        store_user_preference(
-            text=memory_text,
-            user_id=user_id
-        )
-    elif memory_type == "user_memory":
-        store_user_memory(
-            text=memory_text,
-            user_id=user_id
-        )
+    for memory in classification.get("memories", []):
+        memory_type = memory.get("memory_type")
+        memory_text = memory.get("memory_text")
+        confidence = memory.get("confidence", 0)
+        if confidence < 0.7:
+            continue
+        if memory_type == "ignore":
+            continue
+        if memory_type == "preference":
+            store_user_preference(memory_text, user_id=user_id)
+
+        elif memory_type == "user_memory":
+            store_user_memory(memory_text, user_id=user_id)
 
     log_prompt(
         user_input=user_input,
