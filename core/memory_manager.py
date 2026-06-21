@@ -131,11 +131,13 @@ def store_user_memory(text: str, user_id: str) -> None:
 def retrieve_user_memories(
     query: str,
     user_id: str,
-    n_results: int = 5,
-    query_embedding: list[float] | None = None
-) -> list[str]:
+    n_results: int = 3,
+    query_embedding: list[float] | None = None,
+    include_distances: bool = False
+) -> list:
     if query_embedding is None:
         query_embedding = create_embedding(query)
+
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=n_results,
@@ -147,8 +149,20 @@ def retrieve_user_memories(
             ]
         }
     )
-    return results.get("documents", [[]])[0]
 
+    documents = results.get("documents", [[]])[0]
+    distances = results.get("distances", [[]])[0]
+
+    if include_distances:
+        return [
+            {
+                "text": document,
+                "distance": round(distance, 4)
+            }
+            for document, distance in zip(documents, distances)
+        ]
+
+    return documents
 
 def store_chat_summary(
     text: str,
@@ -192,8 +206,9 @@ def retrieve_chat_summaries(
     query: str,
     user_id: str,
     n_results: int = 2,
-    query_embedding: list[float] | None = None
-) -> list[str]:
+    query_embedding: list[float] | None = None,
+    include_distances: bool = False
+) -> list:
     if query_embedding is None:
         query_embedding = create_embedding(query)
 
@@ -209,7 +224,19 @@ def retrieve_chat_summaries(
         }
     )
 
-    return results.get("documents", [[]])[0]
+    documents = results.get("documents", [[]])[0]
+    distances = results.get("distances", [[]])[0]
+
+    if include_distances:
+        return [
+            {
+                "text": document,
+                "distance": round(distance, 4)
+            }
+            for document, distance in zip(documents, distances)
+        ]
+
+    return documents
 
 
 def retrieve_context(query: str, user_id: str) -> dict:
@@ -218,14 +245,16 @@ def retrieve_context(query: str, user_id: str) -> dict:
     user_memories = retrieve_user_memories(
         query=query,
         user_id=user_id,
-        n_results=5,
-        query_embedding=query_embedding
+        n_results=7,
+        query_embedding=query_embedding,
+        include_distances=True
     )
     session_summaries = retrieve_chat_summaries(
         query=query,
         user_id=user_id,
         n_results=2,
-        query_embedding=query_embedding
+        query_embedding=query_embedding,
+        include_distances=True
     )
     return {
         "preferences": preferences,

@@ -1,9 +1,17 @@
-def format_list(title: str, items: list[str]) -> str:
+def format_list(title: str, items: list) -> str:
     if not items:
         return f"{title}:\n- None\n"
 
-    formatted_items = "\n".join(f"- {item}" for item in items)
-    return f"{title}:\n{formatted_items}\n"
+    formatted_items = []
+
+    for item in items:
+        if isinstance(item, dict):
+            text = item.get("text", "")
+            formatted_items.append(f"- {text}")
+        else:
+            formatted_items.append(f"- {item}")
+
+    return f"{title}:\n" + "\n".join(formatted_items) + "\n"
 
 
 def get_recent_history(messages: list[dict], max_messages: int = 6) -> list[dict]:

@@ -13,9 +13,13 @@ def generate_response(messages: list[dict]) -> str:
         response = client.responses.create(
             model=MODEL,
             input=messages,
+            max_output_tokens=1500
         )
-
         return response.output_text
-
     except RateLimitError:
-        return "Δεν υπάρχει διαθέσιμο OpenAI quota. Έλεγξε billing ή API credits."
+        return (
+            "Δεν υπάρχει διαθέσιμο OpenAI quota. "
+            "Έλεγξε billing ή API credits."
+        )
+    except Exception as e:
+        return f"Σφάλμα κατά την κλήση του μοντέλου: {e}"

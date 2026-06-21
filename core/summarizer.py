@@ -33,6 +33,9 @@ Rules:
 - Do not include stable user profile facts such as name, preferences, or thesis topic unless they are directly relevant to the current task.
 - Do not include exact dialogue, apologies, numbering games, or temporary back-and-forth.
 - Maximum length: 4 bullet points.
+- If the conversation segment is only casual small talk without useful context, keep the summary very short.
+- Do not over-summarize greetings, casual checks, or empty social exchanges.
+- If nothing important happened, write: "Δεν προέκυψε σημαντική πληροφορία στη συζήτηση."
 - Write in Greek.
 - Return only the updated summary.
 """

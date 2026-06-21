@@ -1,7 +1,7 @@
 import streamlit as st
 
 from core.llm_client import generate_response
-from core.memory_manager import (retrieve_context, store_chat_summary, retrieve_context, store_chat_summary, restore_memory, mark_memory_obsolete,
+from core.memory_manager import (retrieve_context, store_chat_summary, restore_memory, mark_memory_obsolete,
                                  store_user_memory, store_user_preference, should_store_memory, get_user_memories)
 from core.prompt_builder import build_messages
 from core.logger import log_prompt
@@ -114,6 +114,16 @@ if "session_id" not in st.session_state:
 if "saved_chat_summary_id" not in st.session_state:
     st.session_state.saved_chat_summary_id = None
 
+if "last_context" not in st.session_state:
+    st.session_state.last_context = None
+
+if "last_classification" not in st.session_state:
+    st.session_state.last_classification = None
+
+if "last_storage_log" not in st.session_state:
+    st.session_state.last_storage_log = None
+
+
 if save_clicked:
     if st.session_state.messages:
         if st.session_state.session_summary == "":
@@ -148,6 +158,9 @@ if new_chat_clicked:
     st.session_state.exchanges_since_summary = 0
     st.session_state.session_id = str(uuid.uuid4())
     st.session_state.saved_chat_summary_id = None
+    st.session_state.last_context = None
+    st.session_state.last_classification = None
+    st.session_state.last_storage_log = None
 
     st.success("New chat started.")
     st.rerun()
@@ -248,25 +261,13 @@ if user_input:
             "distance": storage_decision["distance"],
             "threshold": storage_decision["threshold"]
         })
+    #Keep session states
+    st.session_state.last_context = context
+    st.session_state.last_classification = classification
+    st.session_state.last_storage_log = memory_storage_log
     #Update of memories on the sidebar
     render_memory_sidebar(user_id)
 
-    with st.expander("📝 Current Session Summary", expanded=True):
-        if st.session_state.session_summary:
-            st.write(st.session_state.session_summary)
-        else:
-            st.info("No session summary yet.")
-    with st.expander("🔎 Retrieved Context"):
-        st.write("### Preferences")
-        st.json(context.get("preferences", []))
-        st.write("### User Memories")
-        st.json(context.get("user_memories", []))
-        st.write("### Chat Summaries")
-        st.json(context.get("chat_summaries", []))
-    with st.expander("🏷️ Memory Classification"):
-        st.json(classification)
-    with st.expander("🧠 Memory Storage Decision"):
-        st.json(memory_storage_log)
     
     log_prompt(
         user_input=user_input,
@@ -301,3 +302,37 @@ if user_input:
             )
         )
         st.session_state.exchanges_since_summary = 1
+
+#with st.expander("📝 Current Session Summary", expanded=True):
+#    if st.session_state.session_summary:
+#        st.write(st.session_state.session_summary)
+#    else:
+#        st.info("No session summary yet.")
+
+if st.session_state.session_summary:
+    with st.expander(
+        "📝 Current Session Summary",
+        expanded=False
+    ):
+        st.write(
+            st.session_state.session_summary
+        )
+
+if st.session_state.last_context is not None:
+    with st.expander("🔎 Retrieved Context"):
+        st.write("### Preferences")
+        st.json(st.session_state.last_context.get("preferences", []))
+
+        st.write("### User Memories")
+        st.json(st.session_state.last_context.get("user_memories", []))
+
+        st.write("### Chat Summaries")
+        st.json(st.session_state.last_context.get("chat_summaries", []))
+
+if st.session_state.last_classification is not None:
+    with st.expander("🏷️ Memory Classification"):
+        st.json(st.session_state.last_classification)
+
+if st.session_state.last_storage_log is not None:
+    with st.expander("🧠 Memory Storage Decision"):
+        st.json(st.session_state.last_storage_log)
