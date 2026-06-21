@@ -12,26 +12,50 @@ def log_prompt(
     session_summary: str,
     messages_for_llm: list[dict],
     assistant_response: str,
-    classification: dict | None = None
+    user_id: str,
+    classification: dict | None = None,
+    memory_storage: list[dict] | None = None
 ) -> None:
 
-    timestamp = datetime.now().strftime(
-        "%Y%m%d_%H%M%S"
+    now = datetime.now()
+
+    date_folder = now.strftime("%Y-%m-%d")
+    timestamp = now.strftime("%H%M%S")
+
+    user_log_dir = (
+        LOG_DIR
+        / user_id
+        / date_folder
     )
 
-    filename = LOG_DIR / f"prompt_{timestamp}.json"
+    user_log_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    filename = user_log_dir / f"{timestamp}.json"
 
     payload = {
-    "user_input": user_input,
-    "retrieved_context": context,
-    "current_session_summary": session_summary,
-    "messages_for_llm": messages_for_llm,
-    "assistant_message": {
-        "role": "assistant",
-        "content": assistant_response
-    },
-    "memory_classification": classification
-}
+        "timestamp": now.isoformat(),
+        "user_id": user_id,
+
+        "user_input": user_input,
+
+        "retrieved_context": context,
+
+        "current_session_summary": session_summary,
+
+        "messages_for_llm": messages_for_llm,
+
+        "assistant_message": {
+            "role": "assistant",
+            "content": assistant_response
+        },
+
+        "memory_classification": classification,
+
+        "memory_storage": memory_storage
+    }
 
     with open(
         filename,

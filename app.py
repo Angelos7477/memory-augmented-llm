@@ -1,13 +1,88 @@
 import streamlit as st
 
 from core.llm_client import generate_response
-from core.memory_manager import retrieve_context, store_chat_summary, retrieve_context, store_chat_summary, store_user_memory, store_user_preference
+from core.memory_manager import (retrieve_context, store_chat_summary, retrieve_context, store_chat_summary, restore_memory, mark_memory_obsolete,
+                                 store_user_memory, store_user_preference, should_store_memory, get_user_memories)
 from core.prompt_builder import build_messages
 from core.logger import log_prompt
 from core.summarizer import update_session_summary
 from core.memory_classifier import classify_memory
 import uuid
 
+def render_memory_sidebar(user_id: str) -> None:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Long-Term Memory")
+
+    memory_status = st.sidebar.radio(
+        "Status",
+        ["active", "obsolete"],
+        horizontal=True
+    )
+
+    user_memories = get_user_memories(
+        user_id=user_id,
+        status=memory_status
+    )
+
+    preferences = [
+        memory for memory in user_memories
+        if memory["metadata"].get("memory_type") == "preference"
+    ]
+
+    facts = [
+        memory for memory in user_memories
+        if memory["metadata"].get("memory_type") == "user_memory"
+    ]
+
+    chat_summaries = [
+        memory for memory in user_memories
+        if memory["metadata"].get("memory_type") == "chat_summary"
+    ]
+
+    action_label = (
+        "Mark Obsolete"
+        if memory_status == "active"
+        else "Restore"
+    )
+
+    action_type = (
+        "obsolete"
+        if memory_status == "active"
+        else "restore"
+    )
+
+    def render_memory_item(memory: dict) -> None:
+        st.write("•", memory["text"])
+
+        if st.button(
+            action_label,
+            key=f"{action_type}_{memory['id']}"
+        ):
+            if action_type == "obsolete":
+                mark_memory_obsolete(
+                    memory_id=memory["id"],
+                    reason="manual_sidebar_action"
+                )
+            else:
+                restore_memory(
+                    memory_id=memory["id"],
+                    reason="manual_sidebar_action"
+                )
+
+            st.rerun()
+
+    def render_memory_group(title: str, memories: list[dict]) -> None:
+        with st.sidebar.expander(f"{title} ({len(memories)})"):
+            if memories:
+                for memory in memories:
+                    render_memory_item(memory)
+                    st.markdown("---")
+            else:
+                st.caption("No memories stored.")
+
+    render_memory_group("Preferences", preferences)
+    render_memory_group("User Memories", facts)
+    render_memory_group("Chat Summaries", chat_summaries)
 
 st.set_page_config(
     page_title="Memory-Augmented LLM Chatbot",
@@ -84,6 +159,9 @@ for message in st.session_state.messages:
 
 user_input = st.chat_input("Write your message...")
 
+if not user_input:
+    render_memory_sidebar(user_id)
+
 if user_input:
     with st.chat_message("user"):
         st.write(user_input)
@@ -103,27 +181,102 @@ if user_input:
             st.write(assistant_response)
     
     classification = classify_memory(user_input)
+
+    memory_storage_log = []
+
     for memory in classification.get("memories", []):
         memory_type = memory.get("memory_type")
         memory_text = memory.get("memory_text")
         confidence = memory.get("confidence", 0)
+
         if confidence < 0.7:
+            memory_storage_log.append({
+                "memory_type": memory_type,
+                "memory_text": memory_text,
+                "confidence": confidence,
+                "stored": False,
+                "reason": "low_confidence",
+                "closest_memory": None,
+                "distance": None,
+                "threshold": None
+            })
             continue
+
         if memory_type == "ignore":
+            memory_storage_log.append({
+                "memory_type": memory_type,
+                "memory_text": memory_text,
+                "confidence": confidence,
+                "stored": False,
+                "reason": "ignored_by_classifier",
+                "closest_memory": None,
+                "distance": None,
+                "threshold": None
+            })
             continue
-        if memory_type == "preference":
-            store_user_preference(memory_text, user_id=user_id)
 
-        elif memory_type == "user_memory":
-            store_user_memory(memory_text, user_id=user_id)
+        storage_decision = should_store_memory(
+            text=memory_text,
+            user_id=user_id,
+            memory_type=memory_type
+        )
 
+        stored = False
+
+        if storage_decision["store"]:
+            if memory_type == "preference":
+                store_user_preference(
+                    memory_text,
+                    user_id=user_id
+                )
+                stored = True
+
+            elif memory_type == "user_memory":
+                store_user_memory(
+                    memory_text,
+                    user_id=user_id
+                )
+                stored = True
+
+        memory_storage_log.append({
+            "memory_type": memory_type,
+            "memory_text": memory_text,
+            "confidence": confidence,
+            "stored": stored,
+            "reason": storage_decision["reason"],
+            "closest_memory": storage_decision["closest_memory"],
+            "distance": storage_decision["distance"],
+            "threshold": storage_decision["threshold"]
+        })
+    #Update of memories on the sidebar
+    render_memory_sidebar(user_id)
+
+    with st.expander("📝 Current Session Summary", expanded=True):
+        if st.session_state.session_summary:
+            st.write(st.session_state.session_summary)
+        else:
+            st.info("No session summary yet.")
+    with st.expander("🔎 Retrieved Context"):
+        st.write("### Preferences")
+        st.json(context.get("preferences", []))
+        st.write("### User Memories")
+        st.json(context.get("user_memories", []))
+        st.write("### Chat Summaries")
+        st.json(context.get("chat_summaries", []))
+    with st.expander("🏷️ Memory Classification"):
+        st.json(classification)
+    with st.expander("🧠 Memory Storage Decision"):
+        st.json(memory_storage_log)
+    
     log_prompt(
         user_input=user_input,
         context=context,
         session_summary=st.session_state.session_summary,
         messages_for_llm=messages_for_llm,
         assistant_response=assistant_response,
-        classification=classification
+        user_id=user_id,
+        classification=classification,
+        memory_storage=memory_storage_log
     )
 
     st.session_state.messages.append(
