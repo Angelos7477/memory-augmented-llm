@@ -11,7 +11,8 @@ chroma_client = chromadb.PersistentClient(
 )
 
 collection = chroma_client.get_or_create_collection(
-    name="chat_memory"
+    name="chat_memory_cosine",
+    metadata={"hnsw:space": "cosine"}
 )
 #print("Collection metadata:")
 #print(collection.metadata)
@@ -274,7 +275,7 @@ def should_store_memory(
     text: str,
     user_id: str,
     memory_type: str,
-    duplicate_threshold: float = 0.45
+    duplicate_threshold: float = 0.20
 ) -> dict:
     similar_memories = find_similar_active_memories(
         query=text,
