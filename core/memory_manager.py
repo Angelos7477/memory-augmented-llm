@@ -13,7 +13,14 @@ chroma_client = chromadb.PersistentClient(
 collection = chroma_client.get_or_create_collection(
     name="chat_memory"
 )
-
+#print("Collection metadata:")
+#print(collection.metadata)
+#
+#print("Collection configuration:")
+#print(collection.configuration)
+#
+#print("Collection model:")
+#print(collection.get_model())
 
 def store_memory(
     text: str,
