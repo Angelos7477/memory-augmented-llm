@@ -13,7 +13,7 @@ def generate_response(messages: list[dict]) -> str:
         response = client.responses.create(
             model=MODEL,
             input=messages,
-            max_output_tokens=1500
+            max_output_tokens=5000
         )
         return response.output_text
     except RateLimitError:

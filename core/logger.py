@@ -13,6 +13,11 @@ def log_prompt(
     messages_for_llm: list[dict],
     assistant_response: str,
     user_id: str,
+    session_id: str,
+    memory_enabled: bool,
+    retrieval_latency_ms: float,
+    llm_latency_ms: float,
+    total_latency_ms: float,
     classification: dict | None = None,
     memory_storage: list[dict] | None = None
 ) -> None:
@@ -38,22 +43,20 @@ def log_prompt(
     payload = {
         "timestamp": now.isoformat(),
         "user_id": user_id,
-
+        "session_id": session_id,
+        "memory_enabled": memory_enabled,
+        "retrieval_latency_ms": retrieval_latency_ms,
+        "llm_latency_ms": llm_latency_ms,
+        "total_latency_ms": total_latency_ms,
         "user_input": user_input,
-
         "retrieved_context": context,
-
         "current_session_summary": session_summary,
-
         "messages_for_llm": messages_for_llm,
-
         "assistant_message": {
             "role": "assistant",
             "content": assistant_response
         },
-
         "memory_classification": classification,
-
         "memory_storage": memory_storage
     }
 
