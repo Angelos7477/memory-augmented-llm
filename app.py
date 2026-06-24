@@ -8,6 +8,7 @@ from core.logger import log_prompt
 from core.summarizer import update_session_summary
 from core.memory_classifier import classify_memory
 import uuid
+import time
 
 def render_memory_sidebar(user_id: str) -> None:
     st.sidebar.markdown("---")
@@ -99,6 +100,23 @@ new_chat_clicked = st.sidebar.button("New Chat")
 
 save_clicked = st.sidebar.button("Save Chat Summary In Long-Term Memory")
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("Evaluation Controls")
+if "memory_enabled" not in st.session_state:
+    st.session_state.memory_enabled = True
+
+button_label = (
+    "🟢 Memory ON"
+    if st.session_state.memory_enabled
+    else "🔴 Memory OFF"
+)
+if st.sidebar.button(button_label):
+    st.session_state.memory_enabled = (
+        not st.session_state.memory_enabled
+    )
+    st.rerun()
+
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -110,6 +128,10 @@ if "exchanges_since_summary" not in st.session_state:
 
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
+
+#Show seassion id for testing purposes
+st.sidebar.caption("Current Session ID")
+st.sidebar.code(st.session_state.session_id)    
 
 if "saved_chat_summary_id" not in st.session_state:
     st.session_state.saved_chat_summary_id = None
@@ -178,9 +200,14 @@ if not user_input:
 if user_input:
     with st.chat_message("user"):
         st.write(user_input)
-
-    context = retrieve_context(user_input, user_id=user_id)
-
+    
+    if st.session_state.memory_enabled:
+        retrieval_start = time.perf_counter()
+        context = retrieve_context(user_input, user_id=user_id)
+        retrieval_latency_ms = round((time.perf_counter() - retrieval_start) * 1000, 2)
+    else: 
+        context= {"preferences": [],"user_memories": [],"chat_summaries": []}
+        retrieval_latency_ms = 0
     messages_for_llm = build_messages(
         user_input=user_input,
         context=context,
@@ -190,77 +217,93 @@ if user_input:
 
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
+            llm_start = time.perf_counter()
             assistant_response = generate_response(messages_for_llm)
+            llm_latency_ms = round(
+                (time.perf_counter() - llm_start) * 1000,
+                2
+            )
+            total_latency_ms = round(
+                retrieval_latency_ms + llm_latency_ms,
+                2
+            )
             st.write(assistant_response)
-    
+            st.caption(
+                f"Total Latency: {total_latency_ms} ms "
+                f"(retrieval Latency: {retrieval_latency_ms} ms, "
+                f"LLM Latency: {llm_latency_ms} ms)"
+            )
+
     classification = classify_memory(user_input)
 
     memory_storage_log = []
+    if st.session_state.memory_enabled:
+        for memory in classification.get("memories", []):
+            memory_type = memory.get("memory_type")
+            memory_text = memory.get("memory_text")
+            confidence = memory.get("confidence", 0)
 
-    for memory in classification.get("memories", []):
-        memory_type = memory.get("memory_type")
-        memory_text = memory.get("memory_text")
-        confidence = memory.get("confidence", 0)
+            if confidence < 0.7:
+                memory_storage_log.append({
+                    "memory_type": memory_type,
+                    "memory_text": memory_text,
+                    "confidence": confidence,
+                    "stored": False,
+                    "reason": "low_confidence",
+                    "closest_memory": None,
+                    "distance": None,
+                    "threshold": None
+                })
+                continue
 
-        if confidence < 0.7:
+            if memory_type == "ignore":
+                memory_storage_log.append({
+                    "memory_type": memory_type,
+                    "memory_text": memory_text,
+                    "confidence": confidence,
+                    "stored": False,
+                    "reason": "ignored_by_classifier",
+                    "closest_memory": None,
+                    "distance": None,
+                    "threshold": None
+                })
+                continue
+
+            storage_decision = should_store_memory(
+                text=memory_text,
+                user_id=user_id,
+                memory_type=memory_type
+            )
+
+            stored = False
+
+            if storage_decision["store"]:
+                if memory_type == "preference":
+                    store_user_preference(
+                        memory_text,
+                        user_id=user_id
+                    )
+                    stored = True
+
+                elif memory_type == "user_memory":
+                    store_user_memory(
+                        memory_text,
+                        user_id=user_id
+                    )
+                    stored = True
+
             memory_storage_log.append({
                 "memory_type": memory_type,
                 "memory_text": memory_text,
                 "confidence": confidence,
-                "stored": False,
-                "reason": "low_confidence",
-                "closest_memory": None,
-                "distance": None,
-                "threshold": None
+                "stored": stored,
+                "reason": storage_decision["reason"],
+                "closest_memory": storage_decision["closest_memory"],
+                "distance": storage_decision["distance"],
+                "threshold": storage_decision["threshold"]
             })
-            continue
-
-        if memory_type == "ignore":
-            memory_storage_log.append({
-                "memory_type": memory_type,
-                "memory_text": memory_text,
-                "confidence": confidence,
-                "stored": False,
-                "reason": "ignored_by_classifier",
-                "closest_memory": None,
-                "distance": None,
-                "threshold": None
-            })
-            continue
-
-        storage_decision = should_store_memory(
-            text=memory_text,
-            user_id=user_id,
-            memory_type=memory_type
-        )
-
-        stored = False
-
-        if storage_decision["store"]:
-            if memory_type == "preference":
-                store_user_preference(
-                    memory_text,
-                    user_id=user_id
-                )
-                stored = True
-
-            elif memory_type == "user_memory":
-                store_user_memory(
-                    memory_text,
-                    user_id=user_id
-                )
-                stored = True
-
-        memory_storage_log.append({
-            "memory_type": memory_type,
-            "memory_text": memory_text,
-            "confidence": confidence,
-            "stored": stored,
-            "reason": storage_decision["reason"],
-            "closest_memory": storage_decision["closest_memory"],
-            "distance": storage_decision["distance"],
-            "threshold": storage_decision["threshold"]
-        })
+    else: 
+        classification = {"memories": []}
     #Keep session states
     st.session_state.last_context = context
     st.session_state.last_classification = classification
@@ -276,6 +319,11 @@ if user_input:
         messages_for_llm=messages_for_llm,
         assistant_response=assistant_response,
         user_id=user_id,
+        session_id=st.session_state.session_id,
+        memory_enabled=st.session_state.memory_enabled,
+        retrieval_latency_ms=retrieval_latency_ms,
+        llm_latency_ms=llm_latency_ms,
+        total_latency_ms=total_latency_ms,
         classification=classification,
         memory_storage=memory_storage_log
     )

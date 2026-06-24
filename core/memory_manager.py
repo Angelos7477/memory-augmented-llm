@@ -275,7 +275,7 @@ def should_store_memory(
     text: str,
     user_id: str,
     memory_type: str,
-    duplicate_threshold: float = 0.20
+    duplicate_threshold: float = 0.25
 ) -> dict:
     similar_memories = find_similar_active_memories(
         query=text,
