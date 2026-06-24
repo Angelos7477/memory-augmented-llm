@@ -34,7 +34,11 @@ Supported memory types:
 
 -   Chat Summaries
 
-    -   Summaries of completed conversation sessions
+    -   One summary can be stored per conversation session
+
+    -   The summary is generated when the user clicks "Save Chat Summary In Long-Term Memory"
+
+    -   If clicked again during the same session, the existing summary is updated instead of creating a duplicate
 
     -   Stored for future retrieval across sessions
 
@@ -133,9 +137,11 @@ To reduce context window usage:
 
 At the end of a conversation:
 
--   A final chat summary can be generated
+-   A final chat summary can be generated manually
 
--   The summary can be stored as long-term memory
+-   One chat summary can be stored per session
+
+-   The summary can be updated if saved again during the same session
 
 -   A new session can be started using a new Session ID
 
